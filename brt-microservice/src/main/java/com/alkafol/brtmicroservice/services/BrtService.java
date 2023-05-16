@@ -1,5 +1,6 @@
 package com.alkafol.brtmicroservice.services;
 
+import com.alkafol.brtmicroservice.rabbitmq.RabbitSender;
 import com.alkafol.brtmicroservice.dto.*;
 import com.alkafol.brtmicroservice.dto.tarification.ClientTarificationDetails;
 import com.alkafol.brtmicroservice.dto.tarification.TarificationResponseDto;
@@ -44,14 +45,17 @@ public class BrtService {
     private final TariffRepository tariffRepository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final RabbitSender rabbitSender;
     private final Environment env;
 
-    public BrtService(ClientRepository clientRepository, TariffRepository tariffRepository, RestTemplate restTemplate, ObjectMapper objectMapper, Environment env) {
+    public BrtService(ClientRepository clientRepository, TariffRepository tariffRepository, RestTemplate restTemplate,
+                      ObjectMapper objectMapper, Environment env, RabbitSender rabbitSender) {
         this.clientRepository = clientRepository;
         this.restTemplate = restTemplate;
         this.tariffRepository = tariffRepository;
         this.objectMapper = objectMapper;
         this.env = env;
+        this.rabbitSender = rabbitSender;
     }
 
     public void convertToCdrPlus() throws Exception {
@@ -62,7 +66,7 @@ public class BrtService {
         try (Scanner in = new Scanner(new File("cdr.txt"));
              FileWriter fw = new FileWriter(cdrPlus)
         ) {
-            String regex = "^(?:01|02),(?:\\+?\\d{10,13}),\\d{14},\\d{14}$";
+            String regex = "^(?:01|02),\\d{10,13},\\d{14},\\d{14}$";
             Pattern pattern = Pattern.compile(regex);
             while (in.hasNextLine()) {
                 String line = in.nextLine();
@@ -118,7 +122,8 @@ public class BrtService {
 
     public TarificationResult processHrsOutput(TarificationResponseDto tarificationResponseDto) throws IOException {
         // создание файла отчёта из DTO
-        objectMapper.writeValue(Paths.get("report.json").toFile(), tarificationResponseDto);
+        objectMapper.writerWithDefaultPrettyPrinter().
+                writeValue(Paths.get("report.json").toFile(), tarificationResponseDto);
 
         TarificationResult tarificationResult = new TarificationResult(new ArrayList<>());
 
@@ -198,6 +203,7 @@ public class BrtService {
         client.setBalance(client.getBalance() + addMoneyRequestDto.getMoney());
 
         clientRepository.save(client);
+        rabbitSender.sendClientCacheRemoveMessage(client.getNumber());
 
         return new AddMoneyResponseDto(
                 addMoneyRequestDto.getPhoneNumber(),
@@ -239,6 +245,7 @@ public class BrtService {
         client.setTariff(tariff);
 
         clientRepository.save(client);
+        rabbitSender.sendClientCacheRemoveMessage(client.getNumber());
 
         return new ChangeTariffResponseDto(
                 client.getNumber(),
@@ -264,5 +271,18 @@ public class BrtService {
         }
 
         return null;
+    }
+
+    public ClientDto getClientInfo(String phoneNumber) {
+        Client client = clientRepository.findByNumber(phoneNumber);
+        if (client == null){
+            throw new EntityNotFoundException();
+        }
+
+        return new ClientDto(
+                client.getNumber(),
+                client.getTariff().getId(),
+                client.getBalance()
+        );
     }
 }

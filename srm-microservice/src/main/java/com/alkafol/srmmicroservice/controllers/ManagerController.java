@@ -60,4 +60,10 @@ public class ManagerController {
     public void register(@RequestBody ManagerRegistrationDto managerRegistrationDto){
         managerService.register(managerRegistrationDto);
     }
+
+    @Operation(summary = "Get all clients")
+    @GetMapping("/get_client_info/{phoneNumber}")
+    public ClientDto getClientByPhoneNumber(@PathVariable String phoneNumber){
+        return managerService.getClientByPhoneNumber(phoneNumber);
+    }
 }

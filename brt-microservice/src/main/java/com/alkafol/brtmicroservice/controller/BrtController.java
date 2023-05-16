@@ -85,4 +85,9 @@ public class BrtController {
     public ClientTarificationDetails getClientReport(@PathVariable String phoneNumber) throws IOException {
         return brtService.getClientReport(phoneNumber);
     }
+
+    @GetMapping("/get_client_info/{phoneNumber}")
+    public ClientDto getClientInfo(@PathVariable String phoneNumber){
+        return brtService.getClientInfo(phoneNumber);
+    }
 }

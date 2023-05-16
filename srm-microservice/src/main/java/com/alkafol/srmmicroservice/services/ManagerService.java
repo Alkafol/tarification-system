@@ -1,6 +1,7 @@
 package com.alkafol.srmmicroservice.services;
 
 import com.alkafol.srmmicroservice.dto.managerdto.*;
+import com.alkafol.srmmicroservice.services.cache.ClientsCacheService;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -10,11 +11,14 @@ public class ManagerService {
     private final UserService userService;
     private final RestTemplate restTemplate;
     private final Environment env;
+    private final ClientsCacheService clientsCacheService;
 
-    public ManagerService(UserService userService, RestTemplate restTemplate, Environment env) {
+    public ManagerService(UserService userService, RestTemplate restTemplate, Environment env,
+                          ClientsCacheService clientsCacheService) {
         this.userService = userService;
         this.restTemplate = restTemplate;
         this.env = env;
+        this.clientsCacheService = clientsCacheService;
     }
 
     public ChangeTariffResponseDto changeTariff(ChangeTariffRequestDto changeTariffRequestDto) {
@@ -43,5 +47,19 @@ public class ManagerService {
     // регистрация менеджера (логин + пароль)
     public void register(ManagerRegistrationDto managerRegistrationDto) {
         userService.createNewManager(managerRegistrationDto);
+    }
+
+    public ClientDto getClientByPhoneNumber(String phoneNumber) {
+        if (clientsCacheService.containsKey(phoneNumber)){
+            return clientsCacheService.get(phoneNumber);
+        }
+
+        ClientDto clientDto = restTemplate.getForObject(
+                env.getProperty("brt.microservice.address") + "/get_client_info/" + phoneNumber,
+                ClientDto.class
+        );
+        clientsCacheService.put(phoneNumber, clientDto);
+
+        return clientDto;
     }
 }

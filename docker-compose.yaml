@@ -16,6 +16,14 @@ services:
     ports:
       - "5432:5432"
 
+  rabbitMQ:
+    image: rabbitmq:3.10.7-management
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: 1234
+    ports:
+      - "5672:5672"
+      - "15672:15672"
 
   brt-microservice:
     image: alkafol/tarification-system:brt-microservice
@@ -31,6 +39,8 @@ services:
         condition: service_healthy
       hrs-microservice:
         condition: service_healthy
+      rabbitMQ:
+        condition: service_started
     environment:
       - spring.datasource.url=jdbc:postgresql://database:5432/BRT
       - spring.datasource.username=postgres
@@ -41,6 +51,9 @@ services:
       - cdr.microservice.address=http://cdr-microservice:8080
       - brt.microservice.address=http://brt-microservice:8080
       - server.port=8080
+      - spring.rabbitmq.host=rabbitMQ
+      - spring.rabbitmq.username=admin
+      - spring.rabbitmq.password=1234
 
   hrs-microservice:
     image: alkafol/tarification-system:hrs-microservice
@@ -83,6 +96,8 @@ services:
         condition: service_healthy
       cdr-microservice:
         condition: service_started
+      rabbitMQ:
+        condition: service_started
     environment:
       - spring.datasource.url=jdbc:postgresql://database:5432/SRM-Users
       - spring.datasource.username=postgres
@@ -93,3 +108,6 @@ services:
       - cdr.microservice.address=http://cdr-microservice:8080
       - brt.microservice.address=http://brt-microservice:8080
       - server.port=8080
+      - spring.rabbitmq.host=rabbitMQ
+      - spring.rabbitmq.username=admin
+      - spring.rabbitmq.password=1234
